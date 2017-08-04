@@ -36,6 +36,10 @@ const looper = () => Promise
         break;
       }
       case 'update': {
+        if (!data.length) {
+          return Promise.resolve();
+        }
+
         const offset = Math.floor(data.length * Math.random());
         const { _id } = data[offset];
         const row = {
@@ -50,6 +54,10 @@ const looper = () => Promise
         break;
       }
       case 'remove': {
+        if (!data.length) {
+          return Promise.resolve();
+        }
+
         const offset = Math.floor(data.length * Math.random());
         const { _id } = data[offset];
         data.splice(offset, 1);
