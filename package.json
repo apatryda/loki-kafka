@@ -21,5 +21,11 @@
   "bugs": {
     "url": "https://github.com/apatryda/loki-kafka/issues"
   },
-  "homepage": "https://github.com/apatryda/loki-kafka#readme"
+  "homepage": "https://github.com/apatryda/loki-kafka#readme",
+  "dependencies": {
+    "lokijs": "^1.5.0",
+    "no-kafka": "^3.2.0",
+    "objectid": "^3.2.1",
+    "rxjs": "^5.4.2"
+  }
 }
