@@ -17,7 +17,7 @@ const data = _.times(5, _id => ({
   val: randomSentence(),
 }));
 
-const nextId = data.length;
+let nextId = data.length;
 
 const looper = () => Promise
   .try(() => {
@@ -36,7 +36,7 @@ const looper = () => Promise
         break;
       }
       case 'update': {
-        const offset = Math.floor(data.length * Math.random);
+        const offset = Math.floor(data.length * Math.random());
         const { _id } = data[offset];
         const row = {
           _id,
@@ -50,13 +50,15 @@ const looper = () => Promise
         break;
       }
       case 'remove': {
-        const offset = Math.floor(data.length * Math.random);
+        const offset = Math.floor(data.length * Math.random());
         const { _id } = data[offset];
         data.splice(offset, 1);
         value = { _id };
         break;
       }
     }
+
+    console.log({ op, value });
 
     return producer.send({
       topic: 'kafka-test-topic',
