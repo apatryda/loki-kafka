@@ -1,3 +1,4 @@
+const _ = require('lodash');
 const Kafka = require('no-kafka');
 const Promise = require('bluebird');
 const objectid = require('objectid')

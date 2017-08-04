@@ -22,7 +22,7 @@ const items = db.addCollection('items');
 
 const rxItems = new RxCollection(items);
 
-rxItems.find({ _id: { $gt: 10 } })
+rxItems.find({ _id: { $gt: 3 } })
   .subscribe(result => console.log(result))
 ;
 
