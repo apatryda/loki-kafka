@@ -52,7 +52,7 @@ var dataHandler = function (messageSet, topic, partition) {
       }
     }
     // console.log(topic, partition, m.offset, m.message.value.toString('utf8'));
-    console.log(op, value);
+    // console.log(op, value);
   });
 };
 
@@ -60,7 +60,7 @@ consumer
   .init()
   .then(() => consumer.subscribe(
     'kafka-test-topic',
-    [0, 1],
+    [0],
     dataHandler
   ))
 ;
