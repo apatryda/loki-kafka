@@ -23,7 +23,7 @@ const items = db.addCollection('items');
 const rxItems = new RxCollection(items);
 
 rxItems.find({ _id: { $gte: 10 } })
-  .subscribe(result => console.log(result))
+  .subscribe(result => console.log(`\n\nFound ${result.length} documents:\n\n`, result))
 ;
 
 // items.insert({ name : 'mjolnir', owner: 'thor', maker: 'dwarves' });
