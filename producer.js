@@ -12,7 +12,7 @@ const operations = [
   'remove',
 ];
 
-const data = _.times(5, _id => ({
+const data = _.times(10, _id => ({
   _id,
   val: randomSentence(),
 }));
