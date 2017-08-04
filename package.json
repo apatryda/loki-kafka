@@ -23,9 +23,12 @@
   },
   "homepage": "https://github.com/apatryda/loki-kafka#readme",
   "dependencies": {
+    "bluebird": "^3.5.0",
+    "lodash": "^4.17.4",
     "lokijs": "^1.5.0",
     "no-kafka": "^3.2.0",
     "objectid": "^3.2.1",
+    "random-sentence": "^1.0.4",
     "rxjs": "^5.4.2"
   }
 }

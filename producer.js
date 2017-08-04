@@ -1,65 +1,76 @@
 const Kafka = require('no-kafka');
+const Promise = require('bluebird');
 const objectid = require('objectid')
+const randomSentence = require('random-sentence');
 
 const producer = new Kafka.Producer();
 
+const operations = [
+  'insert',
+  'update',
+  'remove',
+];
+
+const data = _.times(5, _id => ({
+  _id,
+  val: randomSentence(),
+}));
+
+const nextId = data.length;
+
+const looper = () => Promise
+  .try(() => {
+    const op = operations[Math.floor(operations.length * Math.random())];
+    let value;
+
+    switch (op) {
+      case 'insert': {
+        const _id = nextId++;
+        const row = {
+          _id,
+          val: randomSentence(),
+        };
+        data.push(row);
+        value = row;
+        break;
+      }
+      case 'update': {
+        const offset = Math.floor(data.length * Math.random);
+        const { _id } = data[offset];
+        const row = {
+          _id,
+          val: randomSentence(),
+        };
+        data[offset] = row;
+        value = [
+          { _id },
+          row,
+        ];
+        break;
+      }
+      case 'remove': {
+        const offset = Math.floor(data.length * Math.random);
+        const { _id } = data[offset];
+        data.splice(offset, 1);
+        value = { _id };
+        break;
+      }
+    }
+
+    return producer.send({
+      topic: 'kafka-test-topic',
+      partition: 0,
+      message: {
+        value: JSON.stringify({ op, value }),
+      },
+    });
+  })
+  .delay(2500)
+  .then(looper)
+;
+
 producer
   .init()
-  // .then(() => producer.send({
-  //   topic: 'kafka-test-topic',
-  //   partition: 0,
-  //   message: {
-  //     key: 'kaffe',
-  //     value: JSON.stringify({ op: 'insert', value: {
-  //       _id: objectid(),
-  //       n: Math.random(),
-  //     } }),
-  //   },
-  // }))
-  .then(() => producer.send({
-    topic: 'kafka-test-topic',
-    partition: 0,
-    message: {
-      key: 'kaffe',
-      value: JSON.stringify({ op: 'insert', value: {
-        _id: 10,
-        n: 100,
-      } }),
-    },
-  }))
-  .then(() => producer.send({
-    topic: 'kafka-test-topic',
-    partition: 0,
-    message: {
-      key: 'kaffe',
-      value: JSON.stringify({ op: 'insert', value: {
-        _id: 11,
-        n: 300,
-      } }),
-    },
-  }))
-  .then(() => producer.send({
-    topic: 'kafka-test-topic',
-    partition: 0,
-    message: {
-      key: 'kaffe',
-      value: JSON.stringify({ op: 'update', value: [
-        { _id: 10 },
-        {
-          n: 200,
-        },
-       ] }),
-    },
-  }))
-  .then(() => producer.send({
-    topic: 'kafka-test-topic',
-    partition: 0,
-    message: {
-      key: 'kaffe',
-      value: JSON.stringify({ op: 'remove', value: {
-        _id: 10,
-      } }),
-    },
-  }))
-  .then(result => producer.end())
+  .then(looper)
+  .catch(() => producer.end())
 ;
