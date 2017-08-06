@@ -76,6 +76,7 @@ const looper = () => Promise
       },
     });
   })
+  .tap(send => console.log('send:', send))
   .delay(2500)
   .then(looper)
 ;

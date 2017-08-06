@@ -2,8 +2,11 @@ const { Observable } = require('rxjs');
 const { createHash } = require('crypto');
 
 class RxCollection {
-  constructor(collection) {
+  constructor({
+    collection,
+  }) {
     this.collection = collection;
+    this.queryTopic = 'lokiQueries';
   }
 
   find(query) {
@@ -16,6 +19,10 @@ class RxCollection {
       dv.applyFind(query);
       dv.on('rebuild', ev => observer.next(dv.data()));
       // observer.next(dv.data());
+
+      dv.data();
+
+
 
       return () => this.collection.removeDynamicView(queryDigest);
     });
