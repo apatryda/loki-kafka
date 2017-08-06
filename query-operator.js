@@ -99,6 +99,60 @@ class QueryOperator {
 
   }
 
+  excludeCached(query) {
+    const docs = this.collection.find(query);
+    const _ids = docs.map(doc => doc._id);
+
+    return { $and: [
+      query,
+      { _id: { $nin: _ids } },
+    ] };
+  }
+
+  importQuery(query) {
+    return Promise
+      .resolve(this.queryDataStore(query))
+      .each((document) => {
+        const { _id } = document;
+        if (this.collection.count({ _id })) {
+          this.collection.findAndUpdate({ _id }, document);
+        } else {
+          this.collection.insert(document);
+        }
+      })
+    ;
+  }
+
+  hybridFind(query) {
+    return Promise
+      .try(() => {
+        const data = this.collection.find(query);
+        const _ids = data.map(doc => doc._id);
+
+        return this.queryDataStore({ $and: [
+          query,
+          { _id: { $nin: _ids } },
+        ]})
+      })
+      .each((document) => {
+        const { _id } = document;
+        if (this.collection.count({ _id })) {
+          this.collection.findAndUpdate({ _id }, document);
+        } else {
+          this.collection.insert(document);
+        }
+      })
+      .then(() => this.collection.chain()
+        .find(query)
+        .data()
+      )
+    ;
+  }
+
+  queueQuery(queryDigest) {
+    this.queryQueue.push(queryDigest);
+  }
+
   addQuery(query) {
     const queryDigest = hashQuery(query);
 
@@ -140,16 +194,25 @@ class QueryOperator {
   }
 
   initInsert(document) {
-    let queryMeta = this.queries[queryDigest];
+    const { _id } = document;
+    const query = { _id };
+    const queryDigest = hashQuery(query);
 
-    if (this.queries[queryDigest]) {
-      return;
+    let queryMeta = this.queries[queryDigest];
+    if (!queryMeta) {
+      queryMeta = this.queries[queryDigest] = { query };
     }
 
-    this.queries[queryDigest] = {
-      query,
-    };
-    if ()
+    return Promise
+      .try(() => this.produceBegin(queryDigest))
+      .then(() => this.insertIntoDataStore(query, document))
+      .then(() => this.importQuery(query))
+      .then(() => this.queueQuery(queryDigest))
+    ;
+  }
+
+  initRemove(query) {
+
   }
 
   processQuery(queryHash) {
