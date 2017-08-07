@@ -26,6 +26,7 @@
     "bluebird": "^3.5.0",
     "lodash": "^4.17.4",
     "lokijs": "^1.5.0",
+    "mongodb": "^2.2.30",
     "no-kafka": "^3.2.0",
     "objectid": "^3.2.1",
     "random-sentence": "^1.0.4",
