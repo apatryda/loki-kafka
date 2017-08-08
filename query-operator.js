@@ -8,9 +8,6 @@ const RxCollection = require('./rx-collection');
 const hashQuery = require('./hashQuery');
 
 class QueryOperator {
-
-  opQueue = [];
-
   constructor({
     collection,
     queryTopic,
@@ -19,17 +16,22 @@ class QueryOperator {
     this.collection = collection;
     this.queryTopic = queryTopic;
     this.resultTopic = resultTopic;
+
+    this.next = () => {};
+    this.opQueue = [];
+
     this.consumer = new Kafka.SimpleConsumer();
-    this.producer = new Kafka.Producer();
     this.consumerInit = this.consumer.init();
+
+    this.producer = new Kafka.Producer();
     this.producerInit = this.producer.init();
 
     Promise
-      .resolve(producerInit)
+      .resolve(this.producerInit)
       .tap(() => {
         Promise
-          .resolve(consumerInit)
-          .then(() => consumer.subscribe(
+          .resolve(this.consumerInit)
+          .then(() => this.consumer.subscribe(
             this.queryTopic,
             [0],
             (...args) => this.processMessages(...args)
@@ -46,8 +48,11 @@ class QueryOperator {
 
   processMessages(messageSet, topic, partition) {
     messageSet.forEach((message) => {
-      const opMeta = JSON.parse(m.message.value.toString('utf8'));
+      console.log(message);
+      const opMeta = JSON.parse(message.message.value.toString());
       const { op } = opMeta;
+
+      console.log(opMeta);
 
       if (op === 'insert') {
         const { _id } = opMeta.document;
@@ -60,6 +65,7 @@ class QueryOperator {
       const queryDigest = hashQuery(query);
       Object.assign(opMeta, { queryDigest });
 
+      console.log(opMeta);
       this.queueOperation(opMeta);
     });
   }
@@ -67,23 +73,42 @@ class QueryOperator {
   processLoop() {
     return Promise
       .try(() => this.dequeueOperation())
+      .tap(op => console.log('op1', op))
       .then(opMeta => this.processOperation(opMeta))
+      .tap(op => console.log('op2', op))
       .then(() => this.processLoop())
     ;
   }
 
   produce(messages) {
+    this.producer.send()
+    console.log('produce');
+    // return Promise
+    //   .try(() => this.producerInit)
+    //   .tap(() => console.log('afterPInit', typeof this.producerInit, messages))
+    //   .then(() => this.producer.send(messages, {
+    //     batch: {
+    //       size: 16384,
+    //       maxWait: 25,
+    //     },
+    //     codec: Kafka.COMPRESSION_SNAPPY,
+    //     partition: 0,
+    //     topic: this.resultTopic,
+    //   }))
+    //   .tap(() => console.log('after prod'))
+    // ;
+    const topic = this.resultTopic;
+    const partition = 0;
     return Promise
       .try(() => this.producerInit)
-      .then(() => this.producer.send(messages, {
+      .tap(() => console.log('afterPInit', typeof this.producerInit, messages))
+      .then(() => this.producer.send(messages.map(message => ({ message, partition, topic })), {
         batch: {
           size: 16384,
           maxWait: 25,
         },
-        codec: Kafka.COMPRESSION_SNAPPY,
-        partition: 0,
-        topic: this.resultTopic,
       }))
+      .tap(() => console.log('after prod'))
     ;
   }
 
@@ -110,16 +135,21 @@ class QueryOperator {
   }
 
   produceBegin(queryDigest) {
+    console.log('produceBegin');
     return this.produce([{
-      op: 'begin',
-      value: queryDigest,
+      value: {
+        op: 'begin',
+        value: queryDigest,
+      },
     }]);
   }
 
   produceEnd(queryDigest) {
     return this.produce([{
-      op: 'end',
-      value: queryDigest,
+      value: {
+        op: 'end',
+        value: queryDigest,
+      },
     }]);
   }
 
@@ -148,6 +178,7 @@ class QueryOperator {
   }
 
   dequeueOperation() {
+    console.log('dequeueOperation');
     if (!this.opQueue.length) {
       return new Promise((resolve, reject) => {
         this.next = resolve;
@@ -156,8 +187,11 @@ class QueryOperator {
       ;
     }
 
+
+    const opMeta = this.opQueue.shift();
+    console.log('dequeueOperation:', opMeta);
     return Promise
-      .resolve(this.opQueue.shift())
+      .resolve(opMeta)
     ;
   }
 
@@ -202,9 +236,13 @@ class QueryOperator {
       }
     }
 
-     return Promise
+    console.log('sss');
+
+    return Promise
       .try(() => this.produceBegin(queryDigest))
+      .tap(() => console.log('xxx1'))
       .then(opPromise)
+      .tap(() => console.log('xxx2'))
       .then(() => {
         this.postprocessOperation(opMeta);
       })
@@ -213,6 +251,8 @@ class QueryOperator {
 
   postprocessOperation(opMeta) {
     const { op } = opMeta;
+
+    console.log('postprocess');
 
     switch (op) {
       case 'find':

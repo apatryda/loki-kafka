@@ -4,14 +4,16 @@ const QueryOperator = require('./query-operator');
 
 class MongoQueryOperator extends QueryOperator {
   constructor(options) {
+    super(options);
+
     const {
       collectionName,
       mongoUrl,
     } = options;
+
     MongoClient.connect(mongoUrl, (err, db) => {
       this.ds = db;
       this.dsCollection = db.collection(collectionName);
-      super(options);
     })
   }
 

@@ -1,10 +1,12 @@
 const Kafka = require('no-kafka');
 const Promise = require('bluebird');
 const objectid = require('objectid')
+const randomSentence = require('random-sentence');
 
 const QueryMaker = require('./query-maker');
 
 const consumer = new Kafka.SimpleConsumer();
+const producer = new Kafka.Producer();
 
 const qm = new QueryMaker({
   queryTopic: 'queries',
@@ -38,11 +40,25 @@ var dataHandler = function (messageSet, topic, partition) {
   });
 };
 
-consumer
-  .init()
+Promise
+  .try(() => consumer.init())
   .then(() => consumer.subscribe(
     'results',
     [0],
     dataHandler
   ))
+  .then(() => producer.init())
+  .then(() => producer.send({
+    partition: 0,
+    topic: 'queries',
+    message: {
+      value: JSON.stringify({
+        op: 'insert',
+        document: {
+          _id: objectid().toHexString(),
+          text: randomSentence(),
+        },
+      }),
+    },
+  }))
 ;
