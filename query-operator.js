@@ -175,7 +175,6 @@ class QueryOperator {
       ;
     }
 
-
     const opMeta = this.opQueue.shift();
     console.log('dequeueOperation:', opMeta);
     return Promise
