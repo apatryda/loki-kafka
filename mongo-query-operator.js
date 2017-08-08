@@ -1,20 +1,26 @@
 const { MongoClient } = require('mongodb');
+const Promise = require('bluebird');
 
 const QueryOperator = require('./query-operator');
 
 class MongoQueryOperator extends QueryOperator {
-  constructor(options) {
-    super(options);
-
+  init() {
     const {
       collectionName,
       mongoUrl,
-    } = options;
+    } = this.options;
 
-    MongoClient.connect(mongoUrl, (err, db) => {
-      this.ds = db;
-      this.dsCollection = db.collection(collectionName);
-    })
+    this.collectionName = collectionName;
+    this.mongoUrl = mongoUrl;
+
+    return Promise
+      .try(() => MongoClient.connect(this.mongoUrl))
+      .then((db) => {
+        this.ds = db;
+        this.dsCollection = db.collection(this.collectionName);
+      })
+      .then(() => super.init())
+    ;
   }
 
   findInDataStore(query) {

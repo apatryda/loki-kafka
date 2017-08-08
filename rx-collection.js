@@ -1,5 +1,6 @@
 const { Observable } = require('rxjs');
-const { createHash } = require('crypto');
+
+const hashQuery = require('./hashQuery');
 
 class RxCollection {
   constructor({
@@ -11,9 +12,7 @@ class RxCollection {
 
   find(query) {
     return Observable.create((observer) => {
-      const queryHash = createHash('sha256');
-      queryHash.update(JSON.stringify(query));
-      const queryDigest = queryHash.digest('hex');
+      const queryDigest = hashQuery(query);
 
       const dv = this.collection.addDynamicView(queryDigest);
       dv.applyFind(query);

@@ -12,6 +12,6 @@ qo = new MongoQueryOperator({
   mongoUrl: 'mongodb://localhost:27017/loki',
   collectionName: 'items',
   collection: items,
-  queryTopic: 'queries',
-  resultTopic: 'results',
+  queryTopic: 'queries2',
+  resultTopic: 'results2',
 });
