@@ -45,8 +45,8 @@ class QueryOperator {
   }
 
   processMessages(messageSet, topic, partition) {
-    messageSet.forEach((message) => {
-      const opMeta = JSON.parse(m.message.value.toString('utf8'));
+    messageSet.forEach((consumedMessage) => {
+      const opMeta = JSON.parse(consumedMessage.message.value.toString('utf8'));
       const { op } = opMeta;
 
       if (op === 'insert') {
@@ -73,33 +73,43 @@ class QueryOperator {
   }
 
   produce(messages) {
+    const producedMessages = _.castArray(messages).map(message => ({
+      message,
+      partition: 0,
+      topic: this.resultTopic,
+    }));
     return Promise
       .try(() => this.producerInit)
-      .then(() => this.producer.send(messages, {
+      .then(() => this.producer.send(producedMessages, {
         batch: {
           size: 16384,
           maxWait: 25,
         },
         codec: Kafka.COMPRESSION_SNAPPY,
-        partition: 0,
-        topic: this.resultTopic,
       }))
     ;
   }
 
-  produceUpserts(documents) {
-    const messages = _.map(_.castArray(documents), (document) => ({
+  produceBegin(queryDigest) {
+    return this.produce({
       value: {
-        op: 'upsert',
-        value: document,
+        op: 'begin',
+        value: queryDigest,
       },
-    }));
+    });
+  }
 
-    return this.produce(messages);
+  produceEnd(queryDigest) {
+    return this.produce({
+      value: {
+        op: 'end',
+        value: queryDigest,
+      },
+    });
   }
 
   produceRemoves(_ids) {
-    const messages = _.map(_.castArray(_ids), (_id) => ({
+    const messages = _.castArray(_ids).map(_id => ({
       value: {
         op: 'remove',
         value: _id,
@@ -109,18 +119,15 @@ class QueryOperator {
     return this.produce(messages);
   }
 
-  produceBegin(queryDigest) {
-    return this.produce([{
-      op: 'begin',
-      value: queryDigest,
-    }]);
-  }
+  produceUpserts(documents) {
+    const messages = _.castArray(documents).map(document => ({
+      value: {
+        op: 'upsert',
+        value: document,
+      },
+    }));
 
-  produceEnd(queryDigest) {
-    return this.produce([{
-      op: 'end',
-      value: queryDigest,
-    }]);
+    return this.produce(messages);
   }
 
   excludeCached(query) {
@@ -135,7 +142,7 @@ class QueryOperator {
 
   importQuery(query) {
     return Promise
-      .resolve(this.queryDataStore(query))
+      .resolve(this.findInDataStore(query))
       .each((document) => {
         const { _id } = document;
         if (this.collection.count({ _id })) {
@@ -149,10 +156,13 @@ class QueryOperator {
 
   dequeueOperation() {
     if (!this.opQueue.length) {
-      return new Promise((resolve, reject) => {
+      const queueLock = new Promise((resolve, reject) => {
         this.next = resolve;
         this.end = reject;
-      }).then(() => this.dequeueOperation())
+      });
+
+      return queueLock
+        .then(() => this.dequeueOperation())
       ;
     }
 
@@ -183,7 +193,9 @@ class QueryOperator {
 
       case 'insert': {
         const { document } = opMeta;
-        opPromise = () => this.insertIntoDataStore(query, document);
+        opPromise = () => Promise
+          .try(() => this.insertIntoDataStore(query, document))
+        ;
         break;
       }
 
@@ -197,7 +209,9 @@ class QueryOperator {
 
       case 'update': {
         const { update } = opMeta;
-        opPromise = () => this.updateDataStore(query, update);
+        opPromise = () => Promise
+          .try(() => this.updateDataStore(query, update))
+        ;
         break;
       }
     }
@@ -219,12 +233,11 @@ class QueryOperator {
       case 'insert':
       case 'update': {
         const {
-          type,
           query,
           queryDigest,
-        } = queryMeta;
+        } = opMeta;
 
-        const queryToImport = type === 'find'
+        const queryToImport = op === 'find'
           ? this.excludeCached(query)
           : query
         ;
@@ -236,8 +249,8 @@ class QueryOperator {
               .find(query)
               .data({ removeMeta: true })
             ;
-
             this.collection.findAndRemove(query);
+
             return this.produceUpserts(docs);
           })
           .then(() => this.produceEnd(queryDigest))
@@ -248,9 +261,7 @@ class QueryOperator {
         const {
           query,
           queryDigest,
-        } = queryMeta;
-
-        const queryToImport = this.excludeCached(query);
+        } = opMeta;
 
         Promise
           .try(() => {
@@ -259,8 +270,8 @@ class QueryOperator {
               .data()
             ;
             const _ids = docs.map(doc => doc._id);
-
             this.collection.findAndRemove(query);
+
             return this.produceRemoves(_ids);
           })
           .then(() => this.produceEnd(queryDigest))
